@@ -24,7 +24,8 @@ func New(db *pgxpool.Pool) *handle {
 }
 
 func (h handle) GetAllExpense(w http.ResponseWriter, r *http.Request) {
-	query, params, err := sq.Select("*").From("expenses").
+	query, params, err := sq.Select("transactionid", "date", "amount", "category",
+		"description", "payment_method", "created_at", "updated_at").From("expenses").
 		PlaceholderFormat(sq.Dollar).
 		ToSql()
 
@@ -48,8 +49,9 @@ func (h handle) GetAllExpense(w http.ResponseWriter, r *http.Request) {
 		var e models.Expense
 
 		if err = rows.Scan(&e.TransactionID, &e.Date, &e.Amount, &e.Category,
-			&e.Description, &e.PaymentMethod); err != nil {
+			&e.Description, &e.PaymentMethod, &e.CreatedAt, &e.UpdatedAt); err != nil {
 			http.Error(w, "error retrieving data", http.StatusInternalServerError)
+			fmt.Println(err)
 			return
 		}
 
@@ -68,9 +70,9 @@ func (h handle) CreateExpense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query, params, err := sq.Insert("expenses").Columns("transactionid", "date",
+	query, params, err := sq.Insert("expenses").Columns("date",
 		"amount", "category", "description", "payment_method").
-		Values(e.TransactionID, e.Date, e.Amount, e.Category, e.Description,
+		Values(e.Date, e.Amount, e.Category, e.Description,
 			e.PaymentMethod).PlaceholderFormat(sq.Dollar).ToSql()
 	if err != nil {
 		fmt.Println(err)
@@ -95,7 +97,7 @@ func (h handle) GetExpenseById(w http.ResponseWriter, r *http.Request) {
 		log.Fatalf("conversion error %v", err)
 	}
 	query, params, err := sq.Select("transactionid", "date", "amount", "category",
-		"description", "payment_method").
+		"description", "payment_method", "created_at", "updated_at").
 		From("expenses").Where("transactionid = ?", id).
 		PlaceholderFormat(sq.Dollar).
 		ToSql()
@@ -105,10 +107,10 @@ func (h handle) GetExpenseById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Println(query, params)
+	fmt.Println(query, params, err)
 
 	err = h.db.QueryRow(r.Context(), query, params...).Scan(&e.TransactionID, &e.Date, &e.Amount,
-		&e.Category, &e.Description, &e.PaymentMethod)
+		&e.Category, &e.Description, &e.PaymentMethod, &e.CreatedAt, &e.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			http.Error(w, "expense not found", http.StatusNotFound)
